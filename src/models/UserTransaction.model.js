@@ -30,7 +30,7 @@ const userTransactionSchema = new mongoose.Schema(
     },
     normalizedType: {
       type: String,
-      enum: ['deposit', 'withdrawal', 'trade', 'fee', 'transfer', 'unknown'],
+      enum: ['TRANSFER_IN', 'TRANSFER_OUT', 'BUY', 'SELL', 'TRADE', 'UNKNOWN'],
     },
     normalizedAsset: {
       type: String, // e.g., 'BTC'

@@ -1,0 +1,4 @@
+module.exports = {
+  TIMESTAMP_TOLERANCE_SECONDS: 300,
+  QUANTITY_TOLERANCE_PCT: 0.01, // 1%
+};
