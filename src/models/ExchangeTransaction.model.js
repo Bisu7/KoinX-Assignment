@@ -40,7 +40,7 @@ const exchangeTransactionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'matched', 'unmatched_exchange', 'conflicting'],
+      enum: ['pending', 'processing', 'matched', 'unmatched_exchange', 'conflicting'],
       default: 'pending',
       index: true,
     },

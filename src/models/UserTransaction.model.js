@@ -40,7 +40,7 @@ const userTransactionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'matched', 'unmatched_user', 'conflicting'],
+      enum: ['pending', 'processing', 'matched', 'unmatched_user', 'conflicting'],
       default: 'pending',
       index: true,
     },

@@ -24,9 +24,31 @@ const reconciliationResultSchema = new mongoose.Schema(
       ref: 'ExchangeTransaction',
       default: null,
     },
+    // Rich Report Details
+    originalUserRow: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    originalExchangeRow: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    normalizedUserValues: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    normalizedExchangeValues: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    confidenceScore: {
+      type: Number,
+    },
+    toleranceUsed: {
+      timestampToleranceSeconds: Number,
+      quantityTolerancePct: Number,
+    },
+    reason: {
+      type: String, // E.g., 'Perfect Match', 'Missing from Exchange'
+    },
     discrepancyDetails: {
       type: mongoose.Schema.Types.Mixed,
-      // e.g., { type: 'amount_mismatch', userAmount: 1.5, exchangeAmount: 1.4 }
     },
   },
   {
@@ -34,7 +56,6 @@ const reconciliationResultSchema = new mongoose.Schema(
   }
 );
 
-// Compound index for querying results by run and status
 reconciliationResultSchema.index({ reconciliationRunId: 1, status: 1 });
 
 const ReconciliationResult = mongoose.model('ReconciliationResult', reconciliationResultSchema);

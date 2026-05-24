@@ -6,8 +6,7 @@ const UserTransaction = require('../models/UserTransaction.model');
 const ExchangeTransaction = require('../models/ExchangeTransaction.model');
 const DataQualityIssue = require('../models/DataQualityIssue.model');
 const logger = require('../utils/logger');
-
-const BATCH_SIZE = 500;
+const { globalConfig } = require('../config/reconciliation.config');
 
 /**
  * Processes a single CSV file
@@ -88,7 +87,7 @@ const processFile = async (runId, filePath, modelConfig) => {
     }
   };
 
-  await parseCsvInBatches(filePath, BATCH_SIZE, processBatch);
+  await parseCsvInBatches(filePath, globalConfig.maxBatchSize, processBatch, globalConfig.csvStreamBufferSize);
 
   return { validCount, invalidCount, duplicateCount };
 };

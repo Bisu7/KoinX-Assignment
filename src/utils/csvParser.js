@@ -6,11 +6,12 @@ const csv = require('csv-parser');
  * @param {string} filePath 
  * @param {number} batchSize 
  * @param {Function} processBatchCallback async (batch) => {}
+ * @param {number} bufferSizeKb Optional stream buffer size in KB
  */
-const parseCsvInBatches = (filePath, batchSize, processBatchCallback) => {
+const parseCsvInBatches = (filePath, batchSize, processBatchCallback, bufferSizeKb = 64) => {
   return new Promise((resolve, reject) => {
     let batch = [];
-    const stream = fs.createReadStream(filePath)
+    const stream = fs.createReadStream(filePath, { highWaterMark: bufferSizeKb * 1024 })
       .pipe(csv())
       .on('data', async (row) => {
         batch.push(row);

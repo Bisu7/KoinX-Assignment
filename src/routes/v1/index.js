@@ -1,6 +1,9 @@
 const express = require('express');
 const healthRoute = require('./health.route');
 const uploadRoute = require('./upload.route');
+const reconcileRoute = require('./reconcile.route');
+const reportRoute = require('./report.route');
+const dataQualityRoute = require('./dataQuality.route');
 
 const router = express.Router();
 
@@ -12,6 +15,18 @@ const defaultRoutes = [
   {
     path: '/upload',
     route: uploadRoute,
+  },
+  {
+    path: '/reconcile',
+    route: reconcileRoute,
+  },
+  {
+    path: '/report',
+    route: reportRoute,
+  },
+  {
+    path: '/data-quality',
+    route: dataQualityRoute,
   },
 ];
 

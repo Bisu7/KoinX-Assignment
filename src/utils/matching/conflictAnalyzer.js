@@ -3,16 +3,16 @@ const { isTimestampWithinTolerance, isQuantityWithinTolerance } = require('./tol
 /**
  * Identifies why two transactions within the same bucket failed to match
  */
-const analyzeConflict = (userTx, exchangeTx) => {
+const analyzeConflict = (userTx, exchangeTx, tolerances) => {
   if (userTx.normalizedAsset !== exchangeTx.normalizedAsset) {
     return 'asset mismatch';
   }
 
-  if (!isTimestampWithinTolerance(userTx.normalizedTimestamp, exchangeTx.normalizedTimestamp)) {
+  if (!isTimestampWithinTolerance(userTx.normalizedTimestamp, exchangeTx.normalizedTimestamp, tolerances.timestampToleranceSeconds)) {
     return 'timestamp mismatch';
   }
 
-  if (!isQuantityWithinTolerance(userTx.normalizedAmount, exchangeTx.normalizedAmount)) {
+  if (!isQuantityWithinTolerance(userTx.normalizedAmount, exchangeTx.normalizedAmount, tolerances.quantityTolerancePct)) {
     return 'quantity mismatch';
   }
 
