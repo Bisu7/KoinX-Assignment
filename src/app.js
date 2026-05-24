@@ -28,10 +28,15 @@ app.use(compression());
 
 // enable cors
 app.use(cors());
-app.options('*', cors());
+// app.options('*', cors()); // Commented out to avoid Express 5 path-to-regexp wildcard error
 
 // v1 api routes
 app.use('/api/v1', routes);
+
+// simple root route for browser testing
+app.get('/', (req, res) => {
+  res.send('Crypto Transaction Reconciliation Engine API is running. Check /api/v1/health for status.');
+});
 
 // send back a 404 error for any unknown api request
 app.use((req, res, next) => {

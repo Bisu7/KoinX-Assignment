@@ -1,5 +1,5 @@
 const winston = require('winston');
-const config = require('../config/env'); // We can use process.env if env.js is not created yet
+// We use process.env directly
 
 const enumerateErrorFormat = winston.format((info) => {
   if (info instanceof Error) {
