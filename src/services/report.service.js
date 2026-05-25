@@ -3,9 +3,6 @@ const ReconciliationResult = require('../models/ReconciliationResult.model');
 const ReconciliationRun = require('../models/ReconciliationRun.model');
 const ApiError = require('../utils/apiError');
 
-/**
- * Retrieves the full report with optional filtering and pagination
- */
 const getFullReport = async (runId, query, pagination) => {
   const run = await ReconciliationRun.findOne({ runId }).lean();
   if (!run) throw new ApiError(404, 'Run ID not found');
@@ -15,7 +12,6 @@ const getFullReport = async (runId, query, pagination) => {
   if (query.status) filter.status = query.status;
   if (query.reason) filter.reason = { $regex: query.reason, $options: 'i' };
 
-  // If we want all records for CSV export, we might ignore pagination limit
   const limit = query.format === 'csv' ? 0 : pagination.limit;
   
   const queryChain = ReconciliationResult.find(filter)
@@ -39,9 +35,6 @@ const getFullReport = async (runId, query, pagination) => {
   };
 };
 
-/**
- * Calculates summary metrics directly using MongoDB Aggregation
- */
 const getRunSummary = async (runId) => {
   const run = await ReconciliationRun.findOne({ runId }).lean();
   if (!run) throw new ApiError(404, 'Run ID not found');
@@ -81,9 +74,6 @@ const getRunSummary = async (runId) => {
   return result.length > 0 ? result[0] : { totalProcessed: 0 };
 };
 
-/**
- * Retrieves only unmatched rows
- */
 const getUnmatched = async (runId, pagination) => {
   const run = await ReconciliationRun.findOne({ runId }).lean();
   if (!run) throw new ApiError(404, 'Run ID not found');

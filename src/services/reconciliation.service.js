@@ -16,7 +16,6 @@ const getExpectedExchangeType = (userType) => {
 const executeReconciliation = async (runName, config) => {
   const startTime = Date.now();
   
-  // 1. Create a Reconciliation Run
   const runId = `REC-${Date.now()}`;
   const run = await ReconciliationRun.create({
     runId,
@@ -28,7 +27,6 @@ const executeReconciliation = async (runName, config) => {
   logger.info(`Starting reconciliation for runName: ${runName}, Run ID: ${runId}`);
 
   try {
-    // 2. Transaction Locking (Idempotency)
     await UserTransaction.updateMany({ isValid: true, status: 'pending' }, { $set: { status: 'processing', reconciliationRunId: run._id } });
     await ExchangeTransaction.updateMany({ isValid: true, status: 'pending' }, { $set: { status: 'processing', reconciliationRunId: run._id } });
 
@@ -48,17 +46,14 @@ const executeReconciliation = async (runName, config) => {
       exchangeUpdatesBatch = [];
     };
 
-    // 3. Process User Transactions Stream (Memory-safe Cursor)
     const userCursor = UserTransaction.find({ reconciliationRunId: run._id, status: 'processing' }).lean().cursor();
 
     for await (const uTx of userCursor) {
       const expectedExType = getExpectedExchangeType(uTx.normalizedType);
       
-      // Calculate timestamp bounds for MongoDB Indexed Query
       const minTime = new Date(uTx.normalizedTimestamp.getTime() - config.timestampToleranceSeconds * 1000);
       const maxTime = new Date(uTx.normalizedTimestamp.getTime() + config.timestampToleranceSeconds * 1000);
 
-      // Target candidates via B-Tree Index instead of in-memory maps
       const candidates = await ExchangeTransaction.find({
         reconciliationRunId: run._id,
         status: 'processing',
@@ -70,7 +65,6 @@ const executeReconciliation = async (runName, config) => {
       let bestCandidates = [];
       let bestScore = -1;
 
-      // Filter against Set and Quantity boundaries
       const validCandidates = candidates.filter(exTx => 
         !matchedExchangeIds.has(exTx._id.toString()) && 
         isQuantityWithinTolerance(uTx.normalizedAmount, exTx.normalizedAmount, config.quantityTolerancePct)
@@ -150,16 +144,13 @@ const executeReconciliation = async (runName, config) => {
         userUpdatesBatch.push({ updateOne: { filter: { _id: uTx._id }, update: { $set: { status: 'unmatched_user' } } } });
       }
 
-      // Check Batch size
       if (resultsBatch.length >= config.maxBatchSize) {
         await flushBatches();
       }
     }
     
-    // Flush any remaining user transaction updates
     await flushBatches();
 
-    // 4. Process Remaining Exchange Transactions Stream
     const exCursor = ExchangeTransaction.find({ reconciliationRunId: run._id, status: 'processing' }).lean().cursor();
     
     for await (const exTx of exCursor) {
@@ -192,10 +183,8 @@ const executeReconciliation = async (runName, config) => {
       }
     }
     
-    // Flush final batch
     await flushBatches();
 
-    // 5. Generate Summary
     run.status = 'completed';
     run.endTime = new Date();
     run.summary.totalMatched = totals.matched;
@@ -219,7 +208,7 @@ const executeReconciliation = async (runName, config) => {
     run.errorMessage = error.message;
     await run.save();
     
-    // Partial Failure Handle: Unlock locked transactions
+    // Handle partial failure unlock
     await UserTransaction.updateMany({ reconciliationRunId: run._id, status: 'processing' }, { $set: { status: 'pending', reconciliationRunId: null } });
     await ExchangeTransaction.updateMany({ reconciliationRunId: run._id, status: 'processing' }, { $set: { status: 'pending', reconciliationRunId: null } });
     
