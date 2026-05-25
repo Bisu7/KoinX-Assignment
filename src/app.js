@@ -15,7 +15,10 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // set security HTTP headers
-app.use(helmet());
+app.use(helmet({
+  crossOriginOpenerPolicy: false,
+  contentSecurityPolicy: false,
+}));
 
 // parse json request body
 app.use(express.json());
