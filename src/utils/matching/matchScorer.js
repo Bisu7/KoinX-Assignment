@@ -1,7 +1,4 @@
-/**
- * Calculates a confidence score [0-100] between two transactions.
- * Exact match = 100.
- */
+
 const calculateScore = (userTx, exchangeTx, tolerances) => {
   let score = 100;
   const { timestampToleranceSeconds, quantityTolerancePct } = tolerances;
@@ -18,13 +15,13 @@ const calculateScore = (userTx, exchangeTx, tolerances) => {
 
   const q1 = Number(userTx.normalizedAmount.toString());
   const q2 = Number(exchangeTx.normalizedAmount.toString());
-  
+
   // Penalize by amount diff (max penalty 30 points)
   if (q1 !== q2 && quantityTolerancePct > 0) {
     const diff = Math.abs(q1 - q2);
     const avg = (q1 + q2) / 2;
     const pctDiff = diff / avg;
-    
+
     const amountPenalty = Math.min((pctDiff / quantityTolerancePct) * 30, 30);
     score -= amountPenalty;
   }

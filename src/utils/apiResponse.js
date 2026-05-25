@@ -1,6 +1,4 @@
-/**
- * Send standard success response
- */
+
 const sendResponse = (res, statusCode, data, message = 'Success') => {
   return res.status(statusCode).json({
     status: 'success',

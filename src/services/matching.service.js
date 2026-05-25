@@ -8,9 +8,6 @@ const { calculateScore } = require('../utils/matching/matchScorer');
 const { analyzeDuplicateCandidates } = require('../utils/matching/conflictAnalyzer');
 const { TIMESTAMP_TOLERANCE_SECONDS } = require('../config/matching');
 
-/**
- * Maps User type to Expected Exchange type
- */
 const getExpectedExchangeType = (userType) => {
   if (userType === 'TRANSFER_OUT') return 'TRANSFER_IN';
   if (userType === 'TRANSFER_IN') return 'TRANSFER_OUT';
@@ -45,7 +42,7 @@ const runMatchingEngine = async (runId) => {
   const results = [];
   const matchedExchangeIds = new Set();
   const userUpdates = [];
-  
+
   for (const uTx of userTxs) {
     const expectedExType = getExpectedExchangeType(uTx.normalizedType);
     const bucket = exBuckets[uTx.normalizedAsset]?.[expectedExType] || [];
@@ -63,7 +60,7 @@ const runMatchingEngine = async (runId) => {
 
     for (const exTx of validCandidates) {
       const score = calculateScore(uTx, exTx);
-      
+
       if (score > bestScore) {
         bestScore = score;
         bestCandidates = [exTx];
@@ -76,7 +73,7 @@ const runMatchingEngine = async (runId) => {
       // 1-to-1 Match
       const matchedExTx = bestCandidates[0];
       matchedExchangeIds.add(matchedExTx._id.toString());
-      
+
       results.push({
         reconciliationRunId: runId,
         status: 'matched',
@@ -86,7 +83,7 @@ const runMatchingEngine = async (runId) => {
       });
 
       userUpdates.push({ updateOne: { filter: { _id: uTx._id }, update: { $set: { status: 'matched' } } } });
-      
+
     } else if (bestCandidates.length > 1) {
       // Conflict: Multiple identical scores
       const conflictData = analyzeDuplicateCandidates(uTx, bestCandidates);
@@ -128,7 +125,7 @@ const runMatchingEngine = async (runId) => {
   if (results.length > 0) {
     await ReconciliationResult.insertMany(results);
   }
-  
+
   if (userUpdates.length > 0) {
     await UserTransaction.bulkWrite(userUpdates);
   }

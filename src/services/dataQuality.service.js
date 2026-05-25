@@ -1,9 +1,6 @@
 const mongoose = require('mongoose');
 const DataQualityIssue = require('../models/DataQualityIssue.model');
 
-/**
- * Retrieves a paginated list of data quality issues
- */
 const getIssues = async (query, pagination) => {
   const filter = {};
 
@@ -29,9 +26,6 @@ const getIssues = async (query, pagination) => {
   };
 };
 
-/**
- * Calculates data quality summary metrics using MongoDB Aggregation
- */
 const getSummaryMetrics = async (runId) => {
   const matchStage = runId ? { $match: { reconciliationRunId: new mongoose.Types.ObjectId(runId) } } : { $match: {} };
 
@@ -56,13 +50,13 @@ const getSummaryMetrics = async (runId) => {
   ];
 
   const result = await DataQualityIssue.aggregate(pipeline);
-  
+
   if (!result || result.length === 0) {
     return { totalIssues: 0, bySeverity: [], byIssueType: [] };
   }
 
   const facetResult = result[0];
-  
+
   return {
     totalIssues: facetResult.totalIssues.length > 0 ? facetResult.totalIssues[0].count : 0,
     bySeverity: facetResult.bySeverity,

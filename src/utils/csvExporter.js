@@ -1,11 +1,6 @@
 const { Parser } = require('json2csv');
 const flatten = require('flat');
 
-/**
- * Converts an array of objects to a CSV string
- * @param {Array} data - The array of objects
- * @returns {String} CSV formatted string
- */
 const exportToCsv = (data) => {
   if (!data || data.length === 0) {
     return '';
@@ -22,7 +17,7 @@ const exportToCsv = (data) => {
 
   const fields = Array.from(fieldsSet);
   const json2csvParser = new Parser({ fields });
-  
+
   return json2csvParser.parse(flattenedData);
 };
 

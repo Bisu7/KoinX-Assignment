@@ -1,8 +1,5 @@
 const { isTimestampWithinTolerance, isQuantityWithinTolerance } = require('./toleranceCalculator');
 
-/**
- * Identifies why two transactions within the same bucket failed to match
- */
 const analyzeConflict = (userTx, exchangeTx, tolerances) => {
   if (userTx.normalizedAsset !== exchangeTx.normalizedAsset) {
     return 'asset mismatch';
@@ -19,9 +16,6 @@ const analyzeConflict = (userTx, exchangeTx, tolerances) => {
   return 'unknown conflict';
 };
 
-/**
- * Handles multiple candidates returning identical top scores
- */
 const analyzeDuplicateCandidates = (userTx, candidates) => {
   return {
     conflictReason: 'duplicate candidates',

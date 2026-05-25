@@ -3,12 +3,9 @@ const { sendResponse } = require('../utils/apiResponse');
 const reportService = require('../services/report.service');
 const { exportToCsv } = require('../utils/csvExporter');
 
-/**
- * GET /api/v1/report/:runId
- */
 const getFullReport = asyncHandler(async (req, res) => {
   const { runId } = req.params;
-  
+
   // Extract query parameters specifically handled outside pagination
   const { format, status, reason } = req.query;
   const query = { format, status, reason };
@@ -25,23 +22,17 @@ const getFullReport = asyncHandler(async (req, res) => {
   return sendResponse(res, 200, data, 'Full report retrieved successfully');
 });
 
-/**
- * GET /api/v1/report/:runId/summary
- */
 const getRunSummary = asyncHandler(async (req, res) => {
   const { runId } = req.params;
   const summary = await reportService.getRunSummary(runId);
   return sendResponse(res, 200, summary, 'Summary retrieved successfully');
 });
 
-/**
- * GET /api/v1/report/:runId/unmatched
- */
 const getUnmatched = asyncHandler(async (req, res) => {
   const { runId } = req.params;
-  
+
   const data = await reportService.getUnmatched(runId, req.pagination);
-  
+
   // Also support CSV export for unmatched specifically
   if (req.query.format === 'csv') {
     const csvString = exportToCsv(data.results);

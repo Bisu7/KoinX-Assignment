@@ -32,16 +32,12 @@ const overrideSchema = Joi.object({
   csvStreamBufferSize: Joi.number().integer().min(1).optional(),
 });
 
-/**
- * Merges global config with runtime overrides from an API request body.
- * Validates the overrides strictly.
- */
 const getMergedConfig = (runtimeOverrides = {}) => {
   const { value, error } = overrideSchema.validate(runtimeOverrides);
   if (error) {
     throw new Error(`Invalid configuration override: ${error.details[0].message}`);
   }
-  
+
   return { ...globalConfig, ...value };
 };
 

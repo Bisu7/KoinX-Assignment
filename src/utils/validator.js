@@ -1,9 +1,5 @@
 const { normalizeAsset, normalizeType } = require('./aliasMapper');
 
-/**
- * Validates and normalizes a row
- * @returns { isValid: boolean, normalized: Object, error: string|null, errorType: string|null }
- */
 const validateAndNormalizeRow = (row) => {
   const { transaction_id, timestamp, type, asset, quantity, price_usd, fee } = row;
 
@@ -19,7 +15,7 @@ const validateAndNormalizeRow = (row) => {
   if (!timestamp) {
     return { isValid: false, normalized: null, error: 'Missing timestamp', errorType: 'malformed_timestamp' };
   }
-  
+
   const parsedTimestamp = new Date(timestamp);
   if (isNaN(parsedTimestamp.getTime())) {
     return { isValid: false, normalized: null, error: 'Malformed timestamp', errorType: 'malformed_timestamp' };
@@ -29,12 +25,12 @@ const validateAndNormalizeRow = (row) => {
   if (!quantity) {
     return { isValid: false, normalized: null, error: 'Missing quantity', errorType: 'missing_quantity' };
   }
-  
+
   const numQuantity = Number(quantity);
   if (isNaN(numQuantity)) {
     return { isValid: false, normalized: null, error: 'Quantity must be numeric', errorType: 'missing_quantity' };
   }
-  
+
   if (numQuantity < 0) {
     return { isValid: false, normalized: null, error: 'Quantity cannot be negative', errorType: 'missing_quantity' };
   }
