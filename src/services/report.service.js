@@ -1,11 +1,16 @@
 const mongoose = require('mongoose');
 const ReconciliationResult = require('../models/ReconciliationResult.model');
+const ReconciliationRun = require('../models/ReconciliationRun.model');
+const ApiError = require('../utils/apiError');
 
 /**
  * Retrieves the full report with optional filtering and pagination
  */
 const getFullReport = async (runId, query, pagination) => {
-  const filter = { reconciliationRunId: runId };
+  const run = await ReconciliationRun.findOne({ runId }).lean();
+  if (!run) throw new ApiError(404, 'Run ID not found');
+
+  const filter = { reconciliationRunId: run._id };
 
   if (query.status) filter.status = query.status;
   if (query.reason) filter.reason = { $regex: query.reason, $options: 'i' };
@@ -38,8 +43,11 @@ const getFullReport = async (runId, query, pagination) => {
  * Calculates summary metrics directly using MongoDB Aggregation
  */
 const getRunSummary = async (runId) => {
+  const run = await ReconciliationRun.findOne({ runId }).lean();
+  if (!run) throw new ApiError(404, 'Run ID not found');
+
   const pipeline = [
-    { $match: { reconciliationRunId: new mongoose.Types.ObjectId(runId) } },
+    { $match: { reconciliationRunId: run._id } },
     {
       $group: {
         _id: null,
@@ -77,8 +85,11 @@ const getRunSummary = async (runId) => {
  * Retrieves only unmatched rows
  */
 const getUnmatched = async (runId, pagination) => {
+  const run = await ReconciliationRun.findOne({ runId }).lean();
+  if (!run) throw new ApiError(404, 'Run ID not found');
+
   const filter = {
-    reconciliationRunId: runId,
+    reconciliationRunId: run._id,
     status: { $in: ['unmatched_user', 'unmatched_exchange'] },
   };
 

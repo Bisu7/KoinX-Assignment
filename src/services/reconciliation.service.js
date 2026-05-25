@@ -3,7 +3,7 @@ const ExchangeTransaction = require('../models/ExchangeTransaction.model');
 const ReconciliationResult = require('../models/ReconciliationResult.model');
 const ReconciliationRun = require('../models/ReconciliationRun.model');
 const logger = require('../utils/logger');
-const { isTimestampWithinTolerance, isQuantityWithinTolerance } = require('../utils/matching/toleranceCalculator');
+const { isQuantityWithinTolerance } = require('../utils/matching/toleranceCalculator');
 const { calculateScore } = require('../utils/matching/matchScorer');
 const { analyzeDuplicateCandidates } = require('../utils/matching/conflictAnalyzer');
 
@@ -29,51 +29,55 @@ const executeReconciliation = async (runName, config) => {
 
   try {
     // 2. Transaction Locking (Idempotency)
-    // Update all 'pending' valid transactions to 'processing'
     await UserTransaction.updateMany({ isValid: true, status: 'pending' }, { $set: { status: 'processing', reconciliationRunId: run._id } });
     await ExchangeTransaction.updateMany({ isValid: true, status: 'pending' }, { $set: { status: 'processing', reconciliationRunId: run._id } });
 
-    // Fetch the locked transactions
-    const userTxs = await UserTransaction.find({ reconciliationRunId: run._id, status: 'processing' }).lean();
-    const exchangeTxs = await ExchangeTransaction.find({ reconciliationRunId: run._id, status: 'processing' }).lean();
-
-    // 3. Bucket Exchange Transactions
-    const exBuckets = {};
-    for (const exTx of exchangeTxs) {
-      const asset = exTx.normalizedAsset;
-      const type = exTx.normalizedType;
-      if (!exBuckets[asset]) exBuckets[asset] = {};
-      if (!exBuckets[asset][type]) exBuckets[asset][type] = [];
-      exBuckets[asset][type].push(exTx);
-    }
-
-    for (const asset in exBuckets) {
-      for (const type in exBuckets[asset]) {
-        exBuckets[asset][type].sort((a, b) => a.normalizedTimestamp - b.normalizedTimestamp);
-      }
-    }
-
-    const results = [];
     const matchedExchangeIds = new Set();
-    const userUpdates = [];
+    let resultsBatch = [];
+    let userUpdatesBatch = [];
+    let exchangeUpdatesBatch = [];
     
-    // 4. Matching Logic
-    for (const uTx of userTxs) {
+    let totals = { matched: 0, unmatchedUser: 0, unmatchedExchange: 0, conflicting: 0 };
+
+    const flushBatches = async () => {
+      if (resultsBatch.length > 0) await ReconciliationResult.insertMany(resultsBatch);
+      if (userUpdatesBatch.length > 0) await UserTransaction.bulkWrite(userUpdatesBatch);
+      if (exchangeUpdatesBatch.length > 0) await ExchangeTransaction.bulkWrite(exchangeUpdatesBatch);
+      resultsBatch = [];
+      userUpdatesBatch = [];
+      exchangeUpdatesBatch = [];
+    };
+
+    // 3. Process User Transactions Stream (Memory-safe Cursor)
+    const userCursor = UserTransaction.find({ reconciliationRunId: run._id, status: 'processing' }).lean().cursor();
+
+    for await (const uTx of userCursor) {
       const expectedExType = getExpectedExchangeType(uTx.normalizedType);
-      const bucket = exBuckets[uTx.normalizedAsset]?.[expectedExType] || [];
+      
+      // Calculate timestamp bounds for MongoDB Indexed Query
+      const minTime = new Date(uTx.normalizedTimestamp.getTime() - config.timestampToleranceSeconds * 1000);
+      const maxTime = new Date(uTx.normalizedTimestamp.getTime() + config.timestampToleranceSeconds * 1000);
+
+      // Target candidates via B-Tree Index instead of in-memory maps
+      const candidates = await ExchangeTransaction.find({
+        reconciliationRunId: run._id,
+        status: 'processing',
+        normalizedAsset: uTx.normalizedAsset,
+        normalizedType: expectedExType,
+        normalizedTimestamp: { $gte: minTime, $lte: maxTime }
+      }).lean();
 
       let bestCandidates = [];
       let bestScore = -1;
 
-      const validCandidates = bucket.filter(exTx => 
+      // Filter against Set and Quantity boundaries
+      const validCandidates = candidates.filter(exTx => 
         !matchedExchangeIds.has(exTx._id.toString()) && 
-        isTimestampWithinTolerance(uTx.normalizedTimestamp, exTx.normalizedTimestamp, config.timestampToleranceSeconds) &&
         isQuantityWithinTolerance(uTx.normalizedAmount, exTx.normalizedAmount, config.quantityTolerancePct)
       );
 
       for (const exTx of validCandidates) {
         const score = calculateScore(uTx, exTx, config);
-        // Only accept if above threshold
         if (score >= config.matchScoreThreshold) {
           if (score > bestScore) {
             bestScore = score;
@@ -84,7 +88,6 @@ const executeReconciliation = async (runName, config) => {
         }
       }
 
-      // 5. Generate Report Entries
       const baseResult = {
         reconciliationRunId: run._id,
         userTransactionId: uTx._id,
@@ -106,8 +109,9 @@ const executeReconciliation = async (runName, config) => {
       if (bestCandidates.length === 1) {
         const matchedExTx = bestCandidates[0];
         matchedExchangeIds.add(matchedExTx._id.toString());
+        totals.matched++;
         
-        results.push({
+        resultsBatch.push({
           ...baseResult,
           status: 'matched',
           exchangeTransactionId: matchedExTx._id,
@@ -122,34 +126,46 @@ const executeReconciliation = async (runName, config) => {
           confidenceScore: bestScore,
           reason: 'Perfect or Fuzzy Match within Tolerance'
         });
-
-        userUpdates.push({ updateOne: { filter: { _id: uTx._id }, update: { $set: { status: 'matched' } } } });
+        userUpdatesBatch.push({ updateOne: { filter: { _id: uTx._id }, update: { $set: { status: 'matched' } } } });
+        exchangeUpdatesBatch.push({ updateOne: { filter: { _id: matchedExTx._id }, update: { $set: { status: 'matched' } } } });
         
       } else if (bestCandidates.length > 1) {
         const conflictData = analyzeDuplicateCandidates(uTx, bestCandidates);
-        results.push({
+        totals.conflicting++;
+        resultsBatch.push({
           ...baseResult,
           status: 'conflicting',
           reason: 'Multiple Identical Scores',
           discrepancyDetails: conflictData
         });
-        userUpdates.push({ updateOne: { filter: { _id: uTx._id }, update: { $set: { status: 'conflicting' } } } });
+        userUpdatesBatch.push({ updateOne: { filter: { _id: uTx._id }, update: { $set: { status: 'conflicting' } } } });
 
       } else {
-        results.push({
+        totals.unmatchedUser++;
+        resultsBatch.push({
           ...baseResult,
           status: 'unmatched_user',
           reason: 'No matching exchange transaction found'
         });
-        userUpdates.push({ updateOne: { filter: { _id: uTx._id }, update: { $set: { status: 'unmatched_user' } } } });
+        userUpdatesBatch.push({ updateOne: { filter: { _id: uTx._id }, update: { $set: { status: 'unmatched_user' } } } });
+      }
+
+      // Check Batch size
+      if (resultsBatch.length >= config.maxBatchSize) {
+        await flushBatches();
       }
     }
+    
+    // Flush any remaining user transaction updates
+    await flushBatches();
 
-    // 6. Handle Unmatched Exchange Transactions
-    const exchangeUpdates = [];
-    for (const exTx of exchangeTxs) {
+    // 4. Process Remaining Exchange Transactions Stream
+    const exCursor = ExchangeTransaction.find({ reconciliationRunId: run._id, status: 'processing' }).lean().cursor();
+    
+    for await (const exTx of exCursor) {
       if (!matchedExchangeIds.has(exTx._id.toString())) {
-        results.push({
+        totals.unmatchedExchange++;
+        resultsBatch.push({
           reconciliationRunId: run._id,
           status: 'unmatched_exchange',
           exchangeTransactionId: exTx._id,
@@ -168,27 +184,24 @@ const executeReconciliation = async (runName, config) => {
             matchScoreThreshold: config.matchScoreThreshold,
           },
         });
-        exchangeUpdates.push({ updateOne: { filter: { _id: exTx._id }, update: { $set: { status: 'unmatched_exchange' } } } });
-      } else {
-        exchangeUpdates.push({ updateOne: { filter: { _id: exTx._id }, update: { $set: { status: 'matched' } } } });
+        exchangeUpdatesBatch.push({ updateOne: { filter: { _id: exTx._id }, update: { $set: { status: 'unmatched_exchange' } } } });
+      }
+
+      if (resultsBatch.length >= config.maxBatchSize) {
+        await flushBatches();
       }
     }
-
-    // 7. Save Results and Updates
-    if (results.length > 0) {
-      await ReconciliationResult.insertMany(results);
-    }
     
-    if (userUpdates.length > 0) await UserTransaction.bulkWrite(userUpdates);
-    if (exchangeUpdates.length > 0) await ExchangeTransaction.bulkWrite(exchangeUpdates);
+    // Flush final batch
+    await flushBatches();
 
-    // 8. Generate Summary
+    // 5. Generate Summary
     run.status = 'completed';
     run.endTime = new Date();
-    run.summary.totalMatched = results.filter(r => r.status === 'matched').length;
-    run.summary.totalUnmatchedUser = results.filter(r => r.status === 'unmatched_user').length;
-    run.summary.totalUnmatchedExchange = results.filter(r => r.status === 'unmatched_exchange').length;
-    run.summary.totalConflicting = results.filter(r => r.status === 'conflicting').length;
+    run.summary.totalMatched = totals.matched;
+    run.summary.totalUnmatchedUser = totals.unmatchedUser;
+    run.summary.totalUnmatchedExchange = totals.unmatchedExchange;
+    run.summary.totalConflicting = totals.conflicting;
     await run.save();
 
     const executionTimeMs = Date.now() - startTime;

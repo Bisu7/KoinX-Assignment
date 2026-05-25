@@ -53,7 +53,14 @@ const exchangeTransactionSchema = new mongoose.Schema(
 // Compound indexes for matching
 exchangeTransactionSchema.index({ reconciliationRunId: 1, normalizedTransactionId: 1 });
 exchangeTransactionSchema.index({ reconciliationRunId: 1, normalizedAsset: 1, normalizedType: 1 });
-exchangeTransactionSchema.index({ status: 1, reconciliationRunId: 1 });
+
+// Compound index for high-performance matching queries
+exchangeTransactionSchema.index({
+  status: 1,
+  normalizedAsset: 1,
+  normalizedType: 1,
+  normalizedTimestamp: 1
+});
 
 const ExchangeTransaction = mongoose.model('ExchangeTransaction', exchangeTransactionSchema);
 module.exports = ExchangeTransaction;

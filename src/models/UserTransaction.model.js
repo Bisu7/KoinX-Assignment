@@ -55,5 +55,14 @@ userTransactionSchema.index({ reconciliationRunId: 1, normalizedTransactionId: 1
 userTransactionSchema.index({ reconciliationRunId: 1, normalizedAsset: 1, normalizedType: 1 });
 userTransactionSchema.index({ status: 1, reconciliationRunId: 1 });
 
+
+// Compound index for high-performance matching queries
+userTransactionSchema.index({
+  status: 1,
+  normalizedAsset: 1,
+  normalizedType: 1,
+  normalizedTimestamp: 1
+});
+
 const UserTransaction = mongoose.model('UserTransaction', userTransactionSchema);
 module.exports = UserTransaction;
