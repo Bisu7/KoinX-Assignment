@@ -10,8 +10,8 @@ const swaggerDef = {
   },
   servers: [
     {
-      url: 'http://localhost:5000/api/v1',
-      description: 'Development Server',
+      url: '/api/v1',
+      description: 'Current Environment Server',
     },
   ],
   components: {
