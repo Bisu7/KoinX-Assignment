@@ -16,6 +16,12 @@ This backend engine provides a robust solution that:
 
 ---
 
+## Live Demo Link
+
+LINK: [http://43.205.145.108:5000/api/v1/docs/](http://43.205.145.108:5000/api/v1/docs/)
+
+---
+
 ## Architecture Decisions
 
 This project follows a clean **Service-Oriented Architecture (MVC + Services)**.
