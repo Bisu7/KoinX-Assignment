@@ -18,6 +18,7 @@ if (process.env.NODE_ENV !== 'test') {
 app.use(helmet({
   crossOriginOpenerPolicy: false,
   contentSecurityPolicy: false,
+  hsts: false,
 }));
 
 // parse json request body
