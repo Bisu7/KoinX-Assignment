@@ -18,7 +18,7 @@ This backend engine provides a robust solution that:
 
 ## Live Demo Link
 
-LINK: [http://43.205.145.108:5000/api/v1/docs/](http://43.205.145.108:5000/api/v1/docs/)
+LINK: [https://koinx-assignment-3p4k.onrender.com/api/v1/docs/](https://koinx-assignment-3p4k.onrender.com/api/v1/docs/)
 
 ---
 
